@@ -1168,10 +1168,10 @@
     const prod = products.find(p => p.id === prodId);
     if (!prod) return;
 
-    window.showConfirmDialog('حذف المنتج', `هل تريد بالتأكيد حذف منتج (${prod.name}) من المخزن؟ سيتم حذفه من كافة الأجهزة.`, async () => {
+    window.showConfirmModal('حذف المنتج', `هل تريد بالتأكيد حذف منتج (${prod.name}) من المخزن؟ سيتم حذفه نهائياً من كافة الأجهزة لضمان عدم الحذف بالخطأ.`, async () => {
       await getEngine().deleteItem('products', prodId);
       window.showToast(`تم حذف المنتج (${prod.name}) بنجاح`, 'success');
-    });
+    }, 'حذف المنتج', 'إلغاء', true);
   };
 
   // --- Page 8: Pricing (جدول الأسعار التفاعلي الديناميكي لجميع الوكلاء والمركز) ---
@@ -1817,6 +1817,57 @@
     return localStorage.getItem('sari_agent_sound_enabled') !== 'false';
   };
 
+  window.isAdminRepeatingSoundEnabled = function() {
+    return localStorage.getItem('sari_admin_repeating_sound_enabled') !== 'false';
+  };
+
+  window.toggleAdminRepeatingSound = function() {
+    const isCurrentlyEnabled = window.isAdminRepeatingSoundEnabled();
+    const newState = !isCurrentlyEnabled;
+    localStorage.setItem('sari_admin_repeating_sound_enabled', newState ? 'true' : 'false');
+
+    if (typeof window.showToast === 'function') {
+      window.showToast(newState ? '🔁 تم تفعيل التنبيه الصوتي المتكرر للطلبات المعلقة' : '⏹️ تم إيقاف التنبيه الصوتي المتكرر', 'info');
+    }
+
+    const mainEl = document.getElementById('main-content');
+    if (mainEl && window.currentPage === 'pending-requests') {
+      window.renderPendingRequests(mainEl);
+    }
+  };
+
+  window.getAdminSoundVolume = function() {
+    const v = localStorage.getItem('sari_admin_sound_volume');
+    return v !== null ? parseFloat(v) : 20.0;
+  };
+
+  window.setAdminSoundVolume = function(val) {
+    localStorage.setItem('sari_admin_sound_volume', String(val));
+    window.playNotificationChime(true, 'admin');
+    if (typeof window.showToast === 'function') {
+      window.showToast(`🔊 تم ضبط مستوى صوت التنبيه إلى (${val}x)`, 'success');
+    }
+    const mainEl = document.getElementById('main-content');
+    if (mainEl && window.currentPage === 'pending-requests') {
+      window.renderPendingRequests(mainEl);
+    }
+  };
+
+  // Repeating audio alert interval for pending requests
+  if (!window._adminRepeatingSoundInterval) {
+    window._adminRepeatingSoundInterval = setInterval(() => {
+      try {
+        if (window.currentPage === 'pending-requests') {
+          const engine = getEngine();
+          const subs = engine?.data?.agentSubmissions || [];
+          if (subs.length > 0 && window.isAdminSoundEnabled() && window.isAdminRepeatingSoundEnabled()) {
+            window.playNotificationChime(true, 'admin');
+          }
+        }
+      } catch (e) {}
+    }, 15000); // Repeat every 15 seconds if pending requests are present and repeating sound is active
+  }
+
   window.playNotificationChime = function(force = false, role = 'agent') {
     try {
       if (role === 'admin') {
@@ -1839,22 +1890,33 @@
       const now = ctx.currentTime;
 
       if (role === 'admin') {
-        // High-clarity 3-note chime for Admin (C5 -> E5 -> G5) to immediately catch attention
-        const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
-        notes.forEach((freq, idx) => {
+        const volMult = typeof window.getAdminSoundVolume === 'function' ? window.getAdminSoundVolume() : 10.0;
+        const gainScale = volMult / 10.0;
+        // Beautiful, soft, gentle 3-second harp / music-box melody chord progression
+        const chordNotes = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98]; // C5, E5, G5, C6, E6, G6 (Warm, melodious, soft)
+        chordNotes.forEach((freq, idx) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+          const filter = ctx.createBiquadFilter();
+          
+          osc.type = 'sine'; // Pure smooth soft sine wave
+          const startTime = now + idx * 0.35;
+          
+          osc.frequency.setValueAtTime(freq, startTime);
+          
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(2500, startTime);
+          
+          gain.gain.setValueAtTime(0.0001, startTime);
+          gain.gain.linearRampToValueAtTime(0.35 * gainScale, startTime + 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 2.4);
 
-          gain.gain.setValueAtTime(0.0001, now + idx * 0.11);
-          gain.gain.exponentialRampToValueAtTime(0.24, now + idx * 0.11 + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.11 + 0.32);
-
-          osc.connect(gain);
+          osc.connect(filter);
+          filter.connect(gain);
           gain.connect(ctx.destination);
-          osc.start(now + idx * 0.11);
-          osc.stop(now + idx * 0.11 + 0.34);
+          
+          osc.start(startTime);
+          osc.stop(startTime + 2.5);
         });
       } else {
         // Gentle 2-note chime for Agent

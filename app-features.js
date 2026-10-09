@@ -455,12 +455,6 @@
             <p class="subtitle">متابعة تواريخ تفعيل وانتهاء اشتراكات الأجهزة واستيرادها من Excel ونظام التنبيه التلقائي</p>
           </div>
           <div class="header-actions">
-            <button class="btn btn-secondary" onclick="openExcelImportSubscribersModal()">
-              <span>📥</span> <span>استدعاء المشتركين من Excel</span>
-            </button>
-            <button class="btn btn-secondary" onclick="exportSubscribersExcel()">
-              <span>📤</span> <span>تصدير Excel</span>
-            </button>
             <button class="btn btn-primary" onclick="openSubscriberModal()">
               <span>➕</span> <span>إضافة مشترك جديد</span>
             </button>
@@ -694,8 +688,16 @@
           </div>
         </div>
 
-        <!-- الفقرة الأخيرة في أسفل صفحة المشتركون وأجهزة البث: زر حذف الكل والتعاملات -->
-        <div class="page-bottom-actions" style="display: flex; justify-content: flex-end; align-items: center; padding-top: 14px; margin-top: 6px;">
+        <!-- الفقرة الأخيرة في أسفل صفحة المشتركون وأجهزة البث -->
+        <div class="page-bottom-actions" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; padding-top: 14px; margin-top: 6px; gap: 10px;">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="openExcelImportSubscribersModal()">
+              <span>📥</span> <span>استدعاء المشتركين من Excel</span>
+            </button>
+            <button class="btn btn-secondary" onclick="exportSubscribersExcel()">
+              <span>📤</span> <span>تصدير Excel</span>
+            </button>
+          </div>
           <button class="btn btn-outline-danger btn-icon" onclick="confirmDeleteAllSubscribers()" title="حذف الكل والتعاملات" aria-label="حذف الكل والتعاملات">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
           </button>

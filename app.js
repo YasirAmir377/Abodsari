@@ -334,6 +334,15 @@
         badge.style.display = 'none';
       }
     }
+
+    const menuToggle = document.getElementById('menu-toggle-btn');
+    if (menuToggle) {
+      if (pending === 0 && !menuToggle.classList.contains('pulsed-clicked')) {
+        menuToggle.classList.add('menu-pulsing');
+      } else {
+        menuToggle.classList.remove('menu-pulsing');
+      }
+    }
   };
 
   window.quickFillLogin = function(user, pass) {
@@ -402,6 +411,8 @@
       const toggleMenu = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        menuToggle.classList.add('pulsed-clicked');
+        menuToggle.classList.remove('menu-pulsing');
         sidebar.classList.toggle('open');
         backdrop.classList.toggle('active');
       };
@@ -473,7 +484,7 @@
       const mainScroll = mainEl ? mainEl.scrollTop : 0;
       const currentScroll = Math.max(winScroll, mainScroll);
 
-      if (currentScroll > 160) {
+      if (currentScroll > 40) {
         scrollToTopBtn.classList.add('visible');
       } else {
         scrollToTopBtn.classList.remove('visible');
@@ -484,7 +495,11 @@
     document.addEventListener('scroll', updateScrollToTopVisibility, { passive: true, capture: true });
 
     if (scrollToTopBtn) {
-      scrollToTopBtn.addEventListener('click', () => {
+      const executeScrollToTop = (e) => {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
         document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
         document.body.scrollTo({ top: 0, behavior: 'smooth' });
@@ -496,7 +511,9 @@
         openContainers.forEach(el => {
           if (el.scrollTop > 0) el.scrollTo({ top: 0, behavior: 'smooth' });
         });
-      });
+      };
+      scrollToTopBtn.addEventListener('click', executeScrollToTop);
+      scrollToTopBtn.addEventListener('touchend', executeScrollToTop, { passive: false });
     }
   }
 
@@ -1152,6 +1169,8 @@
     const data = getData();
     const pendingSubmissions = data.agentSubmissions || [];
     const isSoundOn = typeof window.isAdminSoundEnabled === 'function' ? window.isAdminSoundEnabled() : true;
+    const isRepeatingOn = typeof window.isAdminRepeatingSoundEnabled === 'function' ? window.isAdminRepeatingSoundEnabled() : true;
+    const currentVol = typeof window.getAdminSoundVolume === 'function' ? window.getAdminSoundVolume() : 10.0;
     const newlyArrivedIds = typeof window.getNewlyArrivedSubmissionIds === 'function' ? window.getNewlyArrivedSubmissionIds() : new Set();
 
     container.innerHTML = `
@@ -1168,6 +1187,21 @@
               <span>${isSoundOn ? '🔔' : '🔕'}</span>
               <span>${isSoundOn ? 'صوت التنبيه: مفعّل' : 'صوت التنبيه: مكتوم'}</span>
             </button>
+            <!-- Repeating sound toggle -->
+            <button type="button" class="btn btn-secondary btn-sm" style="background: ${isRepeatingOn ? 'rgba(16, 185, 129, 0.15)' : 'var(--surface)'}; color: ${isRepeatingOn ? 'var(--success)' : 'var(--text)'}; border-color: ${isRepeatingOn ? 'var(--success)' : 'var(--line)'};" onclick="window.toggleAdminRepeatingSound()" title="تشغيل/إيقاف التنبيه الصوتي المتكرر للطلبات المعلقة">
+              <span>${isRepeatingOn ? '🔁 التنبيه المتكرر: مفعل' : '⏹️ التنبيه المتكرر: متوقف'}</span>
+            </button>
+            <!-- Volume selector -->
+            <div style="display: flex; align-items: center; gap: 4px; background: var(--surface); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--line);">
+              <span style="font-size: 0.8rem; font-weight: 700;">مستوى الصوت:</span>
+              <select class="form-input" style="padding: 2px 6px; font-size: 0.82rem; height: auto;" onchange="window.setAdminSoundVolume(this.value)">
+                 <option value="20.0" ${currentVol === 20 ? 'selected' : ''}>20 X</option>
+                 <option value="40.0" ${currentVol === 40 ? 'selected' : ''}>40 X</option>
+                 <option value="60.0" ${currentVol === 60 ? 'selected' : ''}>60 X</option>
+                 <option value="80.0" ${currentVol === 80 ? 'selected' : ''}>80 X</option>
+                 <option value="100.0" ${currentVol === 100 ? 'selected' : ''}>100 X</option>
+               </select>
+            </div>
             <button type="button" class="btn-test-sound" onclick="window.testNotificationChime('admin')" title="تجربة رنة التنبيه">
               <span>▶</span> <span>تجربة الصوت</span>
             </button>
@@ -1496,7 +1530,7 @@
   };
 
   window.deleteSale = async function(id) {
-    showConfirmDialog('حذف الفاتورة', 'هل تريد حذف هذه الفاتورة؟', async () => {
+    window.showConfirmModal('حذف الفاتورة', 'هل تريد حذف هذه الفاتورة وسجلات الديون المرتبطة بها نهائياً لعدم الحذف بالخطأ؟', async () => {
       const data = getData();
       const saleToDelete = (data.sales || []).find(s => s.id === id);
       const debtsToDelete = (data.debts || []).filter(d => d.saleId === id || (saleToDelete && d.saleCode === saleToDelete.code));
@@ -1506,7 +1540,7 @@
         await getEngine().deleteItem('debts', d.id);
       }
       showToast('تم حذف الفاتورة وسجلات الديون المرتبطة بنجاح', 'success');
-    });
+    }, 'حذف الفاتورة', 'إلغاء', true);
   };
 
   window.approveSubmission = function(subId, paymentMethod) {
